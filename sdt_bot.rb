@@ -3,6 +3,8 @@ require_relative 'sdt_config'
 require_relative 'translator'
 require_relative 'flags_langs'
 
+DISCORD_EMBED_THUMBNAIL_URL='https://media.discordapp.net/attachments/785041781472624664/826870778091274320/discord-avatar-512_1.png?width=369&height=369'
+
 class SdtBot
 #	attr_reader :bot
 	attr_accessor :bot
@@ -44,9 +46,8 @@ class SdtBot
 	def setup_bot_slash_commands
 		setup_command_help
 #		setup_command_translate
-#		setup_command_autotrans
+		setup_command_autotrans
 		setup_command_languages
-#		setup_command_spongecase
 	end
 
 	private
@@ -78,11 +79,7 @@ class SdtBot
 
 		@bot.application_command(:help) do |event|
 			@bot.debug("help command execution")
-			embed = Discordrb::Webhooks::Embed.new(title: "Help", 
-												description: "All the commands of #{@bot.name}", 
-												color: 0x1bd3f3,
-												thumbnail: Discordrb::Webhooks::EmbedThumbnail.new(url: 'https://media.discordapp.net/attachments/785041781472624664/826870778091274320/discord-avatar-512_1.png?width=369&height=369')
-												)
+			embed = base_embed("Help", "All the commands of #{@bot.name}")
 			@bot.debug(embed.inspect)
 
 			embed.add_field(name: "#{@command_prefix}help", value: "Show this help command", inline: true)
@@ -113,6 +110,63 @@ class SdtBot
 		end
 	end
 
+	def setup_command_autotrans
+		@guild_ids.each do |server_id|
+			@bot.register_application_command(:autotrans, 'Automatic translation options', server_id: server_id) do |group| 
+				group.subcommand(:status, 'Get automatic translation status')
+				group.subcommand(:on, 'Turn automatic translation on for the current channel (admins only!)') do |sub|
+					sub.string('target_lang', 'Language code, eg: en', required: true)
+				end
+				group.subcommand(:off, 'Turn automatic translation off for the current channel (admins only!)')
+			end
+		end
+
+		# Status
+		bot.application_command(:autotrans).subcommand(:status) do |event|
+			autotrans_lang = @autotrans_config.get_channel_autotrans_status(event.server.name, event.channel.name)
+			if not autotrans_lang
+        embed = base_embed("Automatic translation status", "Automatic translation is turned off on channel ##{event.channel.name}")
+			else
+        embed = base_embed("Automatic translation status", "Automatic translation set to #{@supported_languages[autotrans_lang]} (#{autotrans_lang}) on channel ##{event.channel.name}")
+			end
+
+			autotrans_channels = @autotrans_config.list_autotrans_channels(event.server.name)
+			channel_list = autotrans_channels.map {|channel_name, lang_code| "##{channel_name}:#{lang_code}" }.join(', ')
+			embed.add_field(name: "Autotranslate channels", value: channel_list, inline: false)
+
+			event.respond(embeds: [embed], ephemeral: true, wait: false)
+		end
+
+		# XXX BAN permission!
+		# Turn autotrans on
+		bot.application_command(:autotrans).subcommand(:on) do |event|
+			target_lang = event.options['target_lang']
+			if @supported_languages.has_key?(target_lang)
+				@autotrans_config.set_channel_autotrans_status(event.server.name, event.channel.name, target_lang.downcase)
+				embed = base_embed("Autotranslate on", "Automatic translation language changed to #{@supported_languages[target_lang]} (#{target_lang})")
+			else
+				@bot.debug("Illegal autotranslate lang: #{target_lang}")
+				embed = base_embed("Autotranslate command failed", "Unsupported language: '#{target_lang}'. Use /languages to obtain a list of supported languages.")
+
+			end
+			event.respond(embeds: [embed], ephemeral: false, wait: false)
+		end
+
+		# XXX BAN permission!
+		# Turn autotrans off
+		bot.application_command(:autotrans).subcommand(:off) do |event|
+			@autotrans_config.delete_channel_autotrans_status(event.server.name, event.channel.name)
+			embed = base_embed("Autotranslate off", "Automatic translation turned off on channel #{event.channel.name}")
+			event.respond(embeds: [embed], ephemeral: false, wait: false)
+		end
+	end
+
+	def base_embed(title, description, color=0x1bd3f3, thumbnail_url=DISCORD_EMBED_THUMBNAIL_URL)
+		return Discordrb::Webhooks::Embed.new(title: title, description: description, color: color,
+                      thumbnail: Discordrb::Webhooks::EmbedThumbnail.new(url: thumbnail_url) )
+	end
+
+
 	def setup_command_languages
 		@guild_ids.each do |server_id|
 			@bot.register_application_command(:languages, "#{@bot.name} supported languages", server_id: server_id)
@@ -121,11 +175,7 @@ class SdtBot
 		@bot.application_command(:languages) do |event|
 			@bot.debug("languages command execution")
 
-			embed = Discordrb::Webhooks::Embed.new(title: "Languages", 
-												description: "**Supported languages (Google translate)**",
-												color: 0x1bd3f3,
-												thumbnail: Discordrb::Webhooks::EmbedThumbnail.new(url: 'https://media.discordapp.net/attachments/785041781472624664/826870778091274320/discord-avatar-512_1.png?width=369&height=369')
-												)
+			embed = base_embed("Languages", "**Supported languages (Google translate)**")
 
 			lang_list = ""
 			@supported_languages.map {|language_code, language_display_name| "#{language_display_name} (#{language_code})"}.join(', ').gsub(/(.{1,260})(,+|$)/, "\\1|").split('|').each do |list_segment|
@@ -136,21 +186,4 @@ class SdtBot
 		end
 	end
 
-	def setup_command_spongecase
-		@bot.register_application_command(:spongecase, 'Are you mocking me?', server_id: ENV.fetch('GUILD_IDS', nil)) do |cmd|
-			cmd.string('message', 'Message to spongecase')
-			cmd.boolean('with_picture', 'Show the mocking sponge?')
-		end
-
-		@bot.application_command(:spongecase) do |event|
-#			p event
-		
-			ops = %i[upcase downcase]
-			text = event.options['message'].chars.map { |x| x.__send__(ops.sample) }.join
-			event.respond(content: text)
-
-			event.send_message(content: 'https://pyxis.nymag.com/v1/imgs/09c/923/65324bb3906b6865f904a72f8f8a908541-16-spongebob-explainer.rsquare.w700.jpg') if event.options['with_picture']
-		end
-
-	end
 end
