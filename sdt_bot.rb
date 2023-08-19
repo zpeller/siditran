@@ -63,13 +63,24 @@ class SdtBot
 	private
 
 	def handle_on_ready_event(event)
-		@bot.debug("Ready event, bot connected as #{@bot.name}")
+		@bot.debug("Ready event, bot connected as #{event.bot.name} (orig bot name: #{@bot.name})")
 
 		@bot.listening= "#{@command_prefix}help"
 
 		@bot.debug("Try to change nick to #{@name}")
 		@bot.servers.each do |id, server|
 			server.bot.nick=@bot.name
+		end
+		list_members(event.bot.servers)
+	end
+
+	def list_members(servers)
+		servers.each do |server_id, server|
+			@bot.debug("#{server.name} (id: #{server_id}): #{server.member_count} users")
+			server.members.each do |member|
+#				@bot.debug(member.inspect)
+				@bot.debug("id:#{member.id} nick:#{member.nick} username:#{member.username} display:#{member.display_name}, max role: #{member.highest_role.inspect}")
+			end
 		end
 	end
 
@@ -258,9 +269,15 @@ class SdtBot
 			event.respond(embeds: [embed], ephemeral: true, wait: false)
 		end
 
-		# XXX BAN permission!
 		# Turn autotrans on
 		bot.application_command(:autotrans).subcommand(:on) do |event|
+			if not event.user.highest_role.permissions.manage_channels
+				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
+				event.respond(embeds: [embed], ephemeral: true, wait: false)
+				return
+			end
+				
+#			@bot.debug("mmax role perm: #{event.user.highest_role.permissions.inspect}")
 			target_lang = event.options['target_lang']
 			if @supported_languages.has_key?(target_lang)
 				@autotrans_config.set_channel_autotrans_status(event.server.name, event.channel.name, target_lang.downcase)
@@ -276,6 +293,12 @@ class SdtBot
 		# XXX BAN permission!
 		# Turn autotrans off
 		bot.application_command(:autotrans).subcommand(:off) do |event|
+			if not event.user.highest_role.permissions.manage_channels
+				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
+				event.respond(embeds: [embed], ephemeral: true, wait: false)
+				return
+			end
+				
 			@autotrans_config.delete_channel_autotrans_status(event.server.name, event.channel.name)
 			embed = base_embed("Autotranslate off", "Automatic translation turned off on channel #{event.channel.name}")
 			event.respond(embeds: [embed], ephemeral: false, wait: false)
@@ -369,6 +392,7 @@ class SdtBot
 		translation_result.detected_language = response.translations[0].detected_language_code
 
 		@bot.debug("embeds: #{message.embeds}")
+
 		if message.embeds.length == 0
 			dst_text = response.translations[0].translated_text
 			if prefer_embed
