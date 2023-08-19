@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# gem "rails"
 gem 'discordrb'
 gem 'dotenv'
 gem 'google-cloud-translate-v3'
+gem 'json'
