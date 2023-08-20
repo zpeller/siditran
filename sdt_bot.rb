@@ -69,7 +69,7 @@ class SdtBot
 
 		@bot.debug("Try to change nick to #{@name}")
 		@bot.servers.each do |id, server|
-			server.bot.nick=@bot.name
+			server.bot.nick=@name
 		end
 		list_members(event.bot.servers)
 	end
