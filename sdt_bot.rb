@@ -322,10 +322,10 @@ class SdtBot
 
 		# Turn autotrans on
 		bot.application_command(:autotrans).subcommand(:on) do |event|
-			if not event.user.highest_role.permissions.manage_channels
+			if not event.user.highest_role.permissions.manage_channels and not event.user.highest_role.permissions.administrator
 				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
 				event.respond(embeds: [embed], ephemeral: true, wait: false)
-				return
+				break
 			end
 				
 #			@bot.debug("mmax role perm: #{event.user.highest_role.permissions.inspect}")
@@ -343,10 +343,10 @@ class SdtBot
 
 		# Turn autotrans off
 		bot.application_command(:autotrans).subcommand(:off) do |event|
-			if not event.user.highest_role.permissions.manage_channels
+			if not event.user.highest_role.permissions.manage_channels and not event.user.highest_role.permissions.administrator
 				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
 				event.respond(embeds: [embed], ephemeral: true, wait: false)
-				return
+				break
 			end
 				
 			@autotrans_config.delete_channel_autotrans_status(event.server.name, event.channel.name)
