@@ -489,8 +489,9 @@ class SdtBot
 		return translation_result
 	end
 
-	def base_embed(title, description, color:0x1bd3f3, thumbnail_url:DISCORD_EMBED_THUMBNAIL_URL)
+	def base_embed(title, description, color:0x1bd3f3, thumbnail_url:nil)
 		@bot.debug("BASE_EMBED called, color: #{color} url: #{thumbnail_url}")
+		# thumbnail_url = DISCORD_EMBED_THUMBNAIL_URL
 		return Discordrb::Webhooks::Embed.new(title: title, description: description, color: color,
 			thumbnail: thumbnail_url ? Discordrb::Webhooks::EmbedThumbnail.new(url: thumbnail_url) : nil )
 	end
