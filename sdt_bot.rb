@@ -24,10 +24,10 @@ class SdtBot
 		@logger = logger ? logger : NullLogger
 
 		@command_prefix = '/'
-		@name = ENV.fetch('BOT_NAME')
-		@guild_ids = ENV.fetch('GUILD_IDS').split
+		@name = ENV.fetch('BOT_NAME', 'SiDiTran')
+		@guild_ids = ENV.fetch('GUILD_IDS', "").split
 
-		@autotrans_config = SdtConfig.new(ENV.fetch('AUTOTRANS_CONFIG_FILE'), @logger)
+		@autotrans_config = SdtConfig.new(ENV.fetch('AUTOTRANS_CONFIG_FILE', nil), @logger)
 		@translator = Translator.new(@logger)
 		@supported_languages = @translator.get_supported_languages
 #		@supported_languages = {}
@@ -41,6 +41,10 @@ class SdtBot
 							ignore_bots: false,
 							)
 		@bot.debug= :debug
+
+		if ENV.fetch('LOCAL_FEATURES', nil)
+			require_relative 'local_features'
+		end
 	end
 
 	def run async=false
@@ -76,6 +80,9 @@ class SdtBot
 
 	def list_members(servers)
 		servers.each do |server_id, server|
+			if ENV.fetch('LOCAL_FEATURES') and ENV.fetch('LF_USER_EXPORT_SERVER', nil) == server.name
+				LocalFeatures.dump_server_users_json(server)
+			end
 			@bot.debug("#{server.name} (id: #{server_id}): #{server.member_count} users")
 			server.members.each do |member|
 #				@bot.debug(member.inspect)
@@ -90,7 +97,7 @@ class SdtBot
 		@bot.debug("Attachments: #{event.message.attachments}")
 		@bot.debug("Embeds: #{event.message.embeds}")
 
-		cross_channel = get_text_channel(event.server, ENV.fetch('XTRANS_DST'))
+		cross_channel = get_text_channel(event.server, ENV.fetch('XTRANS_DST', nil))
 
 		if event.message.content.match?('^https?://')
 			webhook = cross_channel.create_webhook(event.author.name)
@@ -103,13 +110,12 @@ class SdtBot
 			return
 		end
 
-		if event.message.embeds.length > 0
-			@bot.debug("Embeds: #{event.message.embeds[0].inspect}")
+#		if event.message.embeds.length > 0
+#			@bot.debug("Embeds: #{event.message.embeds[0].inspect}")
 #					print_embed(event.message.embeds[0])
-		end
+#		end
 
 		translation_result = translate_message_elements(event.message, 'de')
-#				cross_channel = discord.utils.get(@bot.get_all_channels(), name=ENV.fetch('XTRANS_DST'))
 
 		webhook = cross_channel.create_webhook(event.author.name)
 
@@ -158,7 +164,7 @@ class SdtBot
 		end
 
 		# XXX Temporary cross send
-		if ENV.fetch("ENABLE_XTRANS") == "1" and event.channel.name == ENV.fetch("XTRANS_SRC")
+		if ENV.fetch("ENABLE_XTRANS", nil) == "1" and event.channel.name == ENV.fetch("XTRANS_SRC", nil)
 			handle_cross_channel_translation(event)
 		end
 
