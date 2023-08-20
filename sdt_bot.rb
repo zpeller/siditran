@@ -96,7 +96,7 @@ class SdtBot
 			webhook = cross_channel.create_webhook(event.author.name)
 
 			begin
-				webhook.execute(content: event.message.content, username: "#{event.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+				webhook.execute(content: event.message.content, username: "#{event.author.display_name} (by #{@name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
 			ensure
 				webhook.delete()
 			end
@@ -119,12 +119,12 @@ class SdtBot
 				if event.message.attachments.length > 0
 					webhook_embeds += copy_attachments(event.message.attachments)
 				end
-				webhook.execute(content: '', embeds: webhook_embeds, username: "#{event.message.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+				webhook.execute(content: '', embeds: webhook_embeds, username: "#{event.message.author.display_name} (by #{@name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
 			else
 				if event.message.attachments.length > 0
 					translation_result.embeds += copy_attachments(event.message.attachments)
 				end
-				webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+				webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{@name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
 			end
 		ensure
 			webhook.delete()
@@ -205,7 +205,7 @@ class SdtBot
 		webhook = event.channel.create_webhook(event.author.name)
 
 		begin
-			webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{bot.name} autotranslator [#{detected_lang.language_code}->#{target_lang}])", avatar_url: event.author.avatar_url, wait: true)
+			webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{@name} autotranslator [#{detected_lang.language_code}->#{target_lang}])", avatar_url: event.author.avatar_url, wait: true)
 		ensure
 			webhook.delete()
 		end
@@ -257,12 +257,12 @@ class SdtBot
 
 	def setup_command_help
 		@guild_ids.each do |server_id|
-			@bot.register_application_command(:help, "#{@bot.name} commands list", server_id: server_id)
+			@bot.register_application_command(:help, "#{@name} commands list", server_id: server_id)
 		end
 
 		@bot.application_command(:help) do |event|
 			@bot.debug("help command execution")
-			embed = base_embed("Help", "All the commands of #{@bot.name}")
+			embed = base_embed("Help", "All the commands of #{@name}")
 			@bot.debug(embed.inspect)
 
 			embed.add_field(name: "#{@command_prefix}help", value: "Show this help command", inline: true)
@@ -357,7 +357,7 @@ class SdtBot
 
 	def setup_command_languages
 		@guild_ids.each do |server_id|
-			@bot.register_application_command(:languages, "#{@bot.name} supported languages", server_id: server_id)
+			@bot.register_application_command(:languages, "#{@name} supported languages", server_id: server_id)
 		end
 
 		@bot.application_command(:languages) do |event|
