@@ -38,7 +38,7 @@ class SdtBot
 #							name: @name, 
 							name: 'SiDiTran',
 							fancy_log: true, 
-							ignore_bots: true,
+							ignore_bots: false,
 							)
 		@bot.debug= :debug
 	end
@@ -79,8 +79,55 @@ class SdtBot
 			@bot.debug("#{server.name} (id: #{server_id}): #{server.member_count} users")
 			server.members.each do |member|
 #				@bot.debug(member.inspect)
-				@bot.debug("id:#{member.id} nick:#{member.nick} username:#{member.username} display:#{member.display_name}, max role: #{member.highest_role.inspect}")
+				@bot.debug("id:#{member.id} nick:#{member.nick} username:#{member.username} display:#{member.display_name}")
+#				@bot.debug("id:#{member.id} nick:#{member.nick} username:#{member.username} display:#{member.display_name}, max role: #{member.highest_role.inspect}")
 			end
+		end
+	end
+
+	def handle_cross_channel_translation(event)
+		@bot.debug("content: #{event.message.content}")
+		@bot.debug("Attachments: #{event.message.attachments}")
+		@bot.debug("Embeds: #{event.message.embeds}")
+
+		cross_channel = get_text_channel(event.server, ENV.fetch('XTRANS_DST'))
+
+		if event.message.content.match?('^https?://')
+			webhook = cross_channel.create_webhook(event.author.name)
+
+			begin
+				webhook.execute(content: event.message.content, username: "#{event.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+			ensure
+				webhook.delete()
+			end
+			return
+		end
+
+		if event.message.embeds.length > 0
+			@bot.debug("Embeds: #{event.message.embeds[0].inspect}")
+#					print_embed(event.message.embeds[0])
+		end
+
+		translation_result = translate_message_elements(event.message, 'de')
+#				cross_channel = discord.utils.get(@bot.get_all_channels(), name=ENV.fetch('XTRANS_DST'))
+
+		webhook = cross_channel.create_webhook(event.author.name)
+
+		begin
+			if not translation_result.content and translation_result.embeds.length == 0
+				webhook_embeds = copy_embed(event.message.embeds)
+				if event.message.attachments.length > 0
+					webhook_embeds += copy_attachments(event.message.attachments)
+				end
+				webhook.execute(content: '', embeds: webhook_embeds, username: "#{event.message.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+			else
+				if event.message.attachments.length > 0
+					translation_result.embeds += copy_attachments(event.message.attachments)
+				end
+				webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{bot.name} autotranslator)", avatar_url: event.author.avatar_url, wait: true)
+			end
+		ensure
+			webhook.delete()
 		end
 	end
 
@@ -94,14 +141,9 @@ class SdtBot
 			return
 		end
 
-#		if event.channel.type == Discordrb::Channel::TYPES[:dm]
 		if event.channel.pm?
 			embed = base_embed("Can't respond to direct messages", "Sorry, currently I can't respond to direct messages or commands on direct channels. Just send any command to me on a public channel where I'm available, try /help first!\n\nMy answers will be visible to you only, or they will disappear in a minute or two, so we will not disturb the channel.", thumbnail_url: nil)
 			event.channel.send_embed('', [embed])
-#			event.channel.send_embed do |embed|
-#				embed.title = "Can't respond to direct messages"
-#				embed.description = "Sorry, currently I can't respond to direct messages or commands on direct channels. Just send any command to me on a public channel where I'm available, try /help first!\n\nMy answers will be visible to you only, or they will disappear in a minute or two, so we will not disturb the channel."
-#			end
 			return
 		end
 
@@ -114,6 +156,12 @@ class SdtBot
 			@bot.debug("Bot command, abort processing")
 			return
 		end
+
+		# XXX Temporary cross send
+		if ENV.fetch("ENABLE_XTRANS") == "1" and event.channel.name == ENV.fetch("XTRANS_SRC")
+			handle_cross_channel_translation(event)
+		end
+
 
 		target_lang = @autotrans_config.get_channel_autotrans_status(event.server.name, event.channel.name)
 		return if target_lang == nil
@@ -156,8 +204,11 @@ class SdtBot
 
 		webhook = event.channel.create_webhook(event.author.name)
 
-		webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{bot.name} autotranslator [#{detected_lang.language_code}->#{target_lang}])", avatar_url: event.author.avatar_url)
-		webhook.delete()
+		begin
+			webhook.execute(content: translation_result.content, embeds: translation_result.embeds, username: "#{event.author.display_name} (by #{bot.name} autotranslator [#{detected_lang.language_code}->#{target_lang}])", avatar_url: event.author.avatar_url, wait: true)
+		ensure
+			webhook.delete()
+		end
 	end
 
 	def handle_on_reaction_event(event)
@@ -290,7 +341,6 @@ class SdtBot
 			event.respond(embeds: [embed], ephemeral: false, wait: false)
 		end
 
-		# XXX BAN permission!
 		# Turn autotrans off
 		bot.application_command(:autotrans).subcommand(:off) do |event|
 			if not event.user.highest_role.permissions.manage_channels
@@ -370,13 +420,13 @@ class SdtBot
 
 		message.embeds.each do |embed|
 			@bot.debug("Embed: #{embed.title}:#{embed.description}")
-			text += [embed.title] if embed.title.length > 0 
-			text += [embed.description] if embed.description.length > 0 
+			text += [embed.title] if embed.title and embed.title.length > 0 
+			text += [embed.description] if embed.description and embed.description.length > 0 
 			if embed.fields
 				embed.fields.each do |field|
 					@bot.debug("Embed field: #{field.name}:#{field.value}")
-					text += [field.name] if field.name.length > 0 
-					text += [field.value] if field.value.length > 0 
+					text += [field.name] if field.name and field.name.length > 0 
+					text += [field.value] if field.value and field.value.length > 0 
 				end
 			end
 		end
@@ -445,6 +495,16 @@ class SdtBot
 			thumbnail: thumbnail_url ? Discordrb::Webhooks::EmbedThumbnail.new(url: thumbnail_url) : nil )
 	end
 
+	def copy_attachments(source_attachments)
+		attachments=[]
+		source_attachments.each do |attachment|
+			embed = Discordrb::Webhooks::Embed.new
+			embed.image = Discordrb::Webhooks::EmbedImage.new(url: attachment.url)
+			attachments += [embed]
+		end
+		return attachments
+	end
+
 	def copy_embed(source_embeds)
 		copy_embeds = []
 		source_embeds.each do |source_embed|
@@ -458,8 +518,9 @@ class SdtBot
 				footer: source_embed.footer,
 				image: source_embed.image,
 				thumbnail: source_embed.thumbnail ? Discordrb::Webhooks::EmbedThumbnail.new(url: source_embed.thumbnail.url) : nil,
-				video: source_embed.video,
-				provider: source_embed.provider,
+#				video: source_embed.video ? Discordrb::EmbedVideo.new : nil,
+				video: nil,
+				provider: nil, # XXX source_embed.provider,
 				author: source_embed.author,
 			)
 			if source_embed.fields
@@ -470,5 +531,9 @@ class SdtBot
 			copy_embeds += [copy_embed]
 		end
 		return copy_embeds
+	end
+
+	def get_text_channel(server, channel_name)
+		return server.text_channels.filter {|channel| channel.name == channel_name}[0]
 	end
 end
