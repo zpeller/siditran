@@ -80,7 +80,7 @@ class SdtBot
 
 	def list_members(servers)
 		servers.each do |server_id, server|
-			if ENV.fetch('LOCAL_FEATURES') and ENV.fetch('LF_USER_EXPORT_SERVER', nil) == server.name
+			if ENV.fetch('LOCAL_FEATURES') && ENV.fetch('LF_USER_EXPORT_SERVER', nil) == server.name
 				LocalFeatures.dump_server_users_json(server)
 			end
 			@bot.debug("#{server.name} (id: #{server_id}): #{server.member_count} users")
@@ -120,7 +120,7 @@ class SdtBot
 		webhook = cross_channel.create_webhook(event.author.name)
 
 		begin
-			if not translation_result.content and translation_result.embeds.length == 0
+			if !translation_result.content && translation_result.embeds.length == 0
 				webhook_embeds = copy_embed(event.message.embeds)
 				if event.message.attachments.length > 0
 					webhook_embeds += copy_attachments(event.message.attachments)
@@ -153,18 +153,18 @@ class SdtBot
 			return
 		end
 
-		if not event.server
+		if !event.server
 			@bot.debug("No guild info, abort processing")
 			return
 		end
 
-		if event.message.content.length > 0 and @command_prefix == event.message.content[0]
+		if event.message.content.length > 0 && @command_prefix == event.message.content[0]
 			@bot.debug("Bot command, abort processing")
 			return
 		end
 
 		# XXX Temporary cross send
-		if ENV.fetch("ENABLE_XTRANS", nil) == "1" and event.channel.name == ENV.fetch("XTRANS_SRC", nil)
+		if ENV.fetch("ENABLE_XTRANS", nil) == "1" && event.channel.name == ENV.fetch("XTRANS_SRC", nil)
 			handle_cross_channel_translation(event)
 		end
 
@@ -203,7 +203,7 @@ class SdtBot
 
 		translation_result = translate_message_elements(event.message, target_lang)
 
-		if not translation_result.content and translation_result.embeds.length == 0
+		if !translation_result.content && translation_result.embeds.length == 0
 			@bot.debug("Nothing translated")
 			return
 		end
@@ -221,7 +221,7 @@ class SdtBot
 #		@bot.debug(event.inspect)
 		@bot.debug(event.message)
 
-		if not FLAGS_LANGS.include?(event.emoji.name)
+		if !FLAGS_LANGS.include?(event.emoji.name)
 			@bot.debug("Unsupported language emoji: '#{event.emoji.name}'")
 			return
 		end
@@ -229,13 +229,13 @@ class SdtBot
 		@bot.debug("emoji: #{FLAGS_LANGS[event.emoji.name]}")
 
 		target_lang = FLAGS_LANGS[event.emoji.name]['langs'][0]
-		if not @supported_languages.include?(target_lang)
+		if !@supported_languages.include?(target_lang)
 			@bot.debug("Target lang (#{target_lang}) not supported")
 			return
 		end
 
 #		channel = bot.get_channel(event.message.channel_id)
-		if not event.channel
+		if !event.channel
 			@bot.debug("Most likely DM. event.message user_id: #{event.message.user_id}")
 #				user = bot.fetch_user(event.message.user_id)
 			@bot.debug("user: #{user}")
@@ -248,13 +248,13 @@ class SdtBot
 		@bot.debug("target lang: #{target_lang}, msg: #{event.message.content}")
 
 		translation_result = translate_message_elements(event.message, target_lang, true)
-		if not translation_result.content and (not translation_result.embeds or translation_result.embeds.length == 0)
+		if !translation_result.content && (!translation_result.embeds || translation_result.embeds.length == 0)
 			@bot.debug("Nothing to translate")
 			return
 		end
 
 		@bot.debug(translation_result.inspect)
-		if translation_result.content and translation_result.content.length > 0
+		if translation_result.content && translation_result.content.length > 0
 			event.channel.send_temporary_message(content="[#{translation_result.detected_language}->#{target_lang}] #{translation_result.content}", 120.0, false, translation_result.embeds, nil, nil, event.message)
 		else
 			event.channel.send_temporary_message(translation_result.content, 120.0, false, translation_result.embeds, nil, nil, event.message)
@@ -313,7 +313,7 @@ class SdtBot
 		# Status
 		bot.application_command(:autotrans).subcommand(:status) do |event|
 			autotrans_lang = @autotrans_config.get_channel_autotrans_status(event.server.name, event.channel.name)
-			if not autotrans_lang
+			if !autotrans_lang
 				embed = base_embed("Automatic translation status", "Automatic translation is turned off on channel ##{event.channel.name}")
 			else
 				embed = base_embed("Automatic translation status", "Automatic translation set to #{@supported_languages[autotrans_lang]} (#{autotrans_lang}) on channel ##{event.channel.name}")
@@ -328,7 +328,7 @@ class SdtBot
 
 		# Turn autotrans on
 		bot.application_command(:autotrans).subcommand(:on) do |event|
-			if not event.user.highest_role.permissions.manage_channels and not event.user.highest_role.permissions.administrator
+			if !event.user.highest_role.permissions.manage_channels && !event.user.highest_role.permissions.administrator
 				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
 				event.respond(embeds: [embed], ephemeral: true, wait: false)
 				break
@@ -349,7 +349,7 @@ class SdtBot
 
 		# Turn autotrans off
 		bot.application_command(:autotrans).subcommand(:off) do |event|
-			if not event.user.highest_role.permissions.manage_channels and not event.user.highest_role.permissions.administrator
+			if !event.user.highest_role.permissions.manage_channels && !event.user.highest_role.permissions.administrator
 				embed = base_embed("No permission", "You don't have the necessary permission ('Manage channels', or 'Administrator') to change automatic translation settings for the channel", thumbnail_url: nil)
 				event.respond(embeds: [embed], ephemeral: true, wait: false)
 				break
@@ -416,7 +416,7 @@ class SdtBot
 			@bot.debug("Embeds exist")
 			# Single image urls often appear as message.content, while they are not real text, so we ignore 
 			# those if we also have embeds
-			if message.content.length > 0 and not message.content.start_with?('http://') and not message.content.start_with?('https://')
+			if message.content.length > 0 && !message.content.start_with?('http://') && !message.content.start_with?('https://')
 				text = [message.content]
 				@bot.debug("message.content: #{text}")
 			else
@@ -426,13 +426,13 @@ class SdtBot
 
 		message.embeds.each do |embed|
 			@bot.debug("Embed: #{embed.title}:#{embed.description}")
-			text += [embed.title] if embed.title and embed.title.length > 0 
-			text += [embed.description] if embed.description and embed.description.length > 0 
+			text += [embed.title] if embed.title && embed.title.length > 0 
+			text += [embed.description] if embed.description && embed.description.length > 0 
 			if embed.fields
 				embed.fields.each do |field|
 					@bot.debug("Embed field: #{field.name}:#{field.value}")
-					text += [field.name] if field.name and field.name.length > 0 
-					text += [field.value] if field.value and field.value.length > 0 
+					text += [field.name] if field.name && field.name.length > 0 
+					text += [field.value] if field.value && field.value.length > 0 
 				end
 			end
 		end
