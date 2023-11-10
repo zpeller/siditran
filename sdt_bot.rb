@@ -97,7 +97,11 @@ class SdtBot
 		@bot.debug("Attachments: #{event.message.attachments}")
 		@bot.debug("Embeds: #{event.message.embeds}")
 
-		cross_channel = get_text_channel(event.server, ENV.fetch('XTRANS_DST', nil))
+		src_channel_idx = ENV.fetch("XTRANS_SRC", "").split.index(event.channel.name)
+
+		cross_channel = get_text_channel(event.server, ENV.fetch('XTRANS_DST', "").split[src_channel_idx])
+		@bot.debug("Cross channel trans: #{cross_channel}")
+		return if !cross_channel
 
 		if event.message.content.match?('^https?://')
 			webhook = cross_channel.create_webhook(event.author.name)
@@ -164,7 +168,7 @@ class SdtBot
 		end
 
 		# XXX Temporary cross send
-		if ENV.fetch("ENABLE_XTRANS", nil) == "1" && event.channel.name == ENV.fetch("XTRANS_SRC", nil)
+		if ENV.fetch("ENABLE_XTRANS", nil) == "1" && ENV.fetch("XTRANS_SRC", "").split.include?(event.channel.name)
 			handle_cross_channel_translation(event)
 		end
 
